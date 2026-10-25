@@ -17,6 +17,7 @@ public partial class MainWindow : Window
         InitializeComponent();
         _viewModel = new MainViewModel();
         DataContext = _viewModel;
+        _viewModel.PreviewUpdated += colors => PreviewStrip.Update(colors);
         _tray = new TrayService(this);
         _tray.StartRequested += async (_, _) => await _viewModel.StartAsync();
         _tray.StopRequested += async (_, _) => await _viewModel.StopAsync();

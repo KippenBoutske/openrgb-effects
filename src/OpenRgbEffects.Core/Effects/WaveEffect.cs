@@ -10,7 +10,7 @@ public sealed class WaveEffect : ILedEffect
             return;
 
         var degreesPerSecond = 50 + (frame.Speed * 160);
-        var travel = frame.TimeSeconds * degreesPerSecond;
+        var travel = frame.TimeSeconds * degreesPerSecond * (frame.Direction < 0 ? -1 : 1);
 
         if (leds.Length == 1)
         {

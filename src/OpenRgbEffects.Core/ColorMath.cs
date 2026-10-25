@@ -70,6 +70,72 @@ public static class ColorMath
         return (hue, saturation, max);
     }
 
+    public static RgbColor Lerp(RgbColor a, RgbColor b, double t)
+    {
+        var mix = Clamp01(t);
+        return new RgbColor(
+            ToByte(a.R + ((b.R - a.R) * mix)),
+            ToByte(a.G + ((b.G - a.G) * mix)),
+            ToByte(a.B + ((b.B - a.B) * mix)));
+    }
+
+    public static RgbColor SamplePalette(IReadOnlyList<RgbColor>? palette, double t)
+    {
+        if (palette is null || palette.Count == 0)
+            return RgbColor.White;
+        if (palette.Count == 1)
+            return palette[0];
+
+        var wrapped = t - Math.Floor(t);
+        if (wrapped < 0)
+            wrapped += 1;
+        var scaled = wrapped * palette.Count;
+        var index = (int)Math.Floor(scaled) % palette.Count;
+        var next = (index + 1) % palette.Count;
+        return Lerp(palette[index], palette[next], scaled - Math.Floor(scaled));
+    }
+
+    public static IReadOnlyList<RgbColor> EffectivePalette(IReadOnlyList<RgbColor>? palette, RgbColor color, RgbColor color2)
+    {
+        if (palette is { Count: > 1 })
+            return palette;
+        if (color2 is { R: 0, G: 0, B: 0 } && color == RgbColor.White)
+            return PalettePresets.Rainbow.Colors;
+        return [color, color2.R == 0 && color2.G == 0 && color2.B == 0 ? RgbColor.White : color2];
+    }
+
+    public static int DirectedIndex(int index, int count, int direction)
+    {
+        if (count <= 0)
+            return 0;
+        return direction < 0 ? count - 1 - index : index;
+    }
+
+    public static double Fract(double value)
+    {
+        var f = value - Math.Floor(value);
+        return f < 0 ? f + 1 : f;
+    }
+
+    public static double Wave01(double time, double cyclesPerSecond) =>
+        0.5 - (0.5 * Math.Cos(time * cyclesPerSecond * Math.PI * 2));
+
+    public static uint Hash(int value)
+    {
+        unchecked
+        {
+            var x = (uint)value;
+            x ^= 2747636419u;
+            x *= 2654435769u;
+            x ^= x >> 16;
+            x *= 2654435769u;
+            x ^= x >> 16;
+            return x;
+        }
+    }
+
+    public static double Hash01(int value) => Hash(value) / (double)uint.MaxValue;
+
     public static double Clamp01(double value) => value < 0 ? 0 : value > 1 ? 1 : value;
 
     public static byte ToByte(double value)

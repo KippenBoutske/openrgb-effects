@@ -7,19 +7,39 @@ public sealed class EffectState
     private readonly object _gate = new();
     private EffectKind _kind = EffectKind.Static;
     private RgbColor _color = RgbColor.White;
+    private RgbColor _color2 = new(59, 130, 246);
+    private IReadOnlyList<RgbColor> _palette = PalettePresets.Rainbow.Colors;
     private double _speed = 0.5;
     private double _brightness = 1.0;
+    private int _direction = 1;
     private int[] _deviceIds = [];
+    private SensorSnapshot _sensors;
 
-    public void Update(EffectKind kind, RgbColor color, double speed, double brightness, IEnumerable<int> deviceIds)
+    public void Update(EffectKind kind, RgbColor color, double speed, double brightness, IEnumerable<int> deviceIds) =>
+        Update(kind, color, new RgbColor(59, 130, 246), PalettePresets.Rainbow.Colors, speed, brightness, 1, deviceIds, default);
+
+    public void Update(
+        EffectKind kind,
+        RgbColor color,
+        RgbColor color2,
+        IReadOnlyList<RgbColor> palette,
+        double speed,
+        double brightness,
+        int direction,
+        IEnumerable<int> deviceIds,
+        SensorSnapshot sensors)
     {
         lock (_gate)
         {
             _kind = kind;
             _color = color;
+            _color2 = color2;
+            _palette = palette.Count > 0 ? palette : PalettePresets.Rainbow.Colors;
             _speed = ColorMath.Clamp01(speed);
             _brightness = ColorMath.Clamp01(brightness);
+            _direction = direction < 0 ? -1 : 1;
             _deviceIds = deviceIds.Distinct().ToArray();
+            _sensors = sensors;
         }
     }
 
@@ -27,21 +47,26 @@ public sealed class EffectState
     {
         lock (_gate)
         {
-            return new Snapshot(_kind, _color, _speed, _brightness, _deviceIds.ToArray());
+            return new Snapshot(_kind, _color, _color2, _palette, _speed, _brightness, _direction, _deviceIds.ToArray(), _sensors);
         }
     }
 
     public readonly record struct Snapshot(
         EffectKind Kind,
         RgbColor Color,
+        RgbColor Color2,
+        IReadOnlyList<RgbColor> Palette,
         double Speed,
         double Brightness,
-        int[] DeviceIds);
+        int Direction,
+        int[] DeviceIds,
+        SensorSnapshot Sensors);
 }
 
 public sealed class EffectEngine : IDisposable
 {
     public const int FramesPerSecond = 30;
+    public const int PreviewLedCount = 56;
 
     private readonly IRgbController _controller;
     private readonly object _loopGate = new();
@@ -67,6 +92,15 @@ public sealed class EffectEngine : IDisposable
 
     public event EventHandler<string>? Failed;
 
+    public static EffectFrame CreateFrame(in EffectState.Snapshot snapshot, double timeSeconds) =>
+        new(timeSeconds, snapshot.Speed, snapshot.Brightness, snapshot.Color)
+        {
+            Color2 = snapshot.Color2,
+            Palette = snapshot.Palette,
+            Direction = snapshot.Direction,
+            Sensors = snapshot.Sensors
+        };
+
     public void Start(IReadOnlyList<RgbDeviceInfo> devices)
     {
         ArgumentNullException.ThrowIfNull(devices);
@@ -83,7 +117,6 @@ public sealed class EffectEngine : IDisposable
                 }
                 catch (Exception)
                 {
-                    // Keep starting; the frame loop reports a hard failure.
                 }
             }
 
@@ -107,9 +140,7 @@ public sealed class EffectEngine : IDisposable
         }
 
         if (cts is not null)
-        {
             await cts.CancelAsync().ConfigureAwait(false);
-        }
 
         if (loop is not null)
         {
@@ -155,7 +186,7 @@ public sealed class EffectEngine : IDisposable
                     currentKind = snapshot.Kind;
                 }
 
-                var frame = new EffectFrame(clock.Elapsed.TotalSeconds, snapshot.Speed, snapshot.Brightness, snapshot.Color);
+                var frame = CreateFrame(snapshot, clock.Elapsed.TotalSeconds);
                 foreach (var deviceId in snapshot.DeviceIds)
                 {
                     if (!devices.TryGetValue(deviceId, out var device) || device.LedCount <= 0)

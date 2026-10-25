@@ -3,13 +3,13 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:controls="clr-namespace:OpenRgbEffects.App.Controls"
         Title="OpenRGB Effects"
-        Width="980" Height="720"
-        MinWidth="860" MinHeight="620"
+        Width="1200" Height="820"
+        MinWidth="1020" MinHeight="700"
         Background="{StaticResource BgBrush}"
         Icon="pack://application:,,,/Assets/app.ico"
         WindowStartupLocation="CenterScreen">
-    <DockPanel Margin="20">
-        <Grid DockPanel.Dock="Top" Margin="0,0,0,16">
+    <DockPanel Margin="18">
+        <Grid DockPanel.Dock="Top" Margin="0,0,0,14">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
@@ -42,11 +42,11 @@
                     </Ellipse.Style>
                 </Ellipse>
                 <TextBlock Text="{Binding StatusText}" VerticalAlignment="Center"
-                           TextWrapping="Wrap" MaxWidth="360" Style="{StaticResource MutedText}" />
+                           TextWrapping="Wrap" MaxWidth="420" Style="{StaticResource MutedText}" />
             </StackPanel>
         </Grid>
 
-        <Border DockPanel.Dock="Top" Style="{StaticResource Card}" Margin="0,0,0,16" Padding="14">
+        <Border DockPanel.Dock="Top" Style="{StaticResource Card}" Margin="0,0,0,12" Padding="14">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
@@ -69,53 +69,56 @@
             </Grid>
         </Border>
 
-        <Border DockPanel.Dock="Bottom" Margin="0,16,0,0" Background="Transparent">
-            <Grid>
-                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                    <CheckBox Content="Starten met Windows" IsChecked="{Binding StartWithWindows}" Margin="0,0,20,0" />
-                    <CheckBox Content="Minimaliseren naar systeemvak" IsChecked="{Binding MinimizeToTray}" Margin="0,0,20,0" />
-                    <CheckBox Content="Laatste effect hervatten bij start" IsChecked="{Binding ResumeEffectOnStart}" />
-                </StackPanel>
-            </Grid>
+        <Border DockPanel.Dock="Top" Style="{StaticResource Card}" Margin="0,0,0,12" Padding="12">
+            <DockPanel>
+                <TextBlock DockPanel.Dock="Top" Text="Live preview" FontWeight="SemiBold" Margin="0,0,0,8" />
+                <controls:PreviewStripControl x:Name="PreviewStrip" />
+            </DockPanel>
+        </Border>
+
+        <Border DockPanel.Dock="Bottom" Margin="0,12,0,0" Background="Transparent">
+            <StackPanel Orientation="Horizontal">
+                <CheckBox Content="Starten met Windows" IsChecked="{Binding StartWithWindows}" Margin="0,0,20,0" />
+                <CheckBox Content="Minimaliseren naar systeemvak" IsChecked="{Binding MinimizeToTray}" Margin="0,0,20,0" />
+                <CheckBox Content="Laatste effect hervatten bij start" IsChecked="{Binding ResumeEffectOnStart}" />
+            </StackPanel>
         </Border>
 
         <Grid>
             <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="0.9*" />
+                <ColumnDefinition Width="12" />
                 <ColumnDefinition Width="1.05*" />
-                <ColumnDefinition Width="16" />
-                <ColumnDefinition Width="1.15*" />
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="1.05*" />
             </Grid.ColumnDefinitions>
 
             <Border Style="{StaticResource Card}">
                 <DockPanel>
-                    <Grid DockPanel.Dock="Top" Margin="0,0,0,12">
+                    <Grid DockPanel.Dock="Top" Margin="0,0,0,10">
                         <TextBlock Text="Apparaten en zones" FontSize="16" FontWeight="SemiBold" />
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                             <Button Content="Alles" Command="{Binding SelectAllDevicesCommand}" Style="{StaticResource LinkButton}" />
                             <Button Content="Geen" Command="{Binding SelectNoDevicesCommand}" Style="{StaticResource LinkButton}" />
                         </StackPanel>
                     </Grid>
-                    <TextBlock DockPanel.Dock="Top"
-                               Text="Kies op welke apparaten het effect draait. Zones zijn informatief; updates gaan per apparaat."
-                               Style="{StaticResource MutedText}" TextWrapping="Wrap" Margin="0,0,0,12" />
+                    <TextBlock DockPanel.Dock="Top" Style="{StaticResource MutedText}" TextWrapping="Wrap" Margin="0,0,0,10"
+                               Text="Kies op welke apparaten het effect draait." />
                     <ScrollViewer VerticalScrollBarVisibility="Auto">
                         <ItemsControl ItemsSource="{Binding Devices}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <Border Background="#1E232C" CornerRadius="10" Padding="12" Margin="0,0,0,10"
+                                    <Border Background="#1E232C" CornerRadius="10" Padding="10" Margin="0,0,0,8"
                                             BorderBrush="#2B3140" BorderThickness="1">
                                         <DockPanel>
-                                            <CheckBox DockPanel.Dock="Top"
-                                                      IsChecked="{Binding IsSelected, Mode=TwoWay}"
-                                                      FontWeight="SemiBold">
+                                            <CheckBox DockPanel.Dock="Top" IsChecked="{Binding IsSelected, Mode=TwoWay}" FontWeight="SemiBold">
                                                 <TextBlock Text="{Binding Name}" TextWrapping="Wrap" />
                                             </CheckBox>
-                                            <TextBlock DockPanel.Dock="Top" Text="{Binding Details}"
-                                                       Style="{StaticResource MutedText}" Margin="24,4,0,8" />
-                                            <ItemsControl ItemsSource="{Binding Zones}" Margin="24,0,0,0">
+                                            <TextBlock DockPanel.Dock="Top" Text="{Binding Details}" Style="{StaticResource MutedText}" Margin="22,4,0,6" />
+                                            <ItemsControl ItemsSource="{Binding Zones}" Margin="22,0,0,0">
                                                 <ItemsControl.ItemTemplate>
                                                     <DataTemplate>
-                                                        <Border Background="#171A21" CornerRadius="6" Padding="8,4" Margin="0,0,0,6">
+                                                        <Border Background="#171A21" CornerRadius="6" Padding="8,3" Margin="0,0,0,5">
                                                             <TextBlock Text="{Binding Summary}" Style="{StaticResource MutedText}" FontSize="12" />
                                                         </Border>
                                                     </DataTemplate>
@@ -131,57 +134,129 @@
             </Border>
 
             <Border Grid.Column="2" Style="{StaticResource Card}">
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Top" Text="Effecten" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,8" />
+                    <TextBox DockPanel.Dock="Top" Margin="0,0,0,8"
+                             Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                             Tag="Zoeken" ToolTip="Zoeken" />
+                    <ItemsControl DockPanel.Dock="Top" ItemsSource="{Binding Categories}" Margin="0,0,0,10">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Button Margin="0,0,6,6" Padding="10,5"
+                                        Command="{Binding DataContext.SelectCategoryCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                        CommandParameter="{Binding Id}">
+                                    <Button.Style>
+                                        <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+                                            <Style.Triggers>
+                                                <DataTrigger Value="True">
+                                                    <DataTrigger.Binding>
+                                                        <MultiBinding Converter="{StaticResource StringPairEquals}">
+                                                            <Binding Path="DataContext.CategoryFilterId" RelativeSource="{RelativeSource AncestorType=Window}" />
+                                                            <Binding Path="Id" />
+                                                        </MultiBinding>
+                                                    </DataTrigger.Binding>
+                                                    <Setter Property="Background" Value="#3B3358" />
+                                                    <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                    <TextBlock Text="{Binding Name}" />
+                                </Button>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <ListBox ItemsSource="{Binding FilteredEffects}" SelectedItem="{Binding SelectedEffectItem}"
+                             HorizontalContentAlignment="Stretch">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel>
+                                        <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
+                                        <TextBlock Text="{Binding CategoryName}" Style="{StaticResource MutedText}" FontSize="11" />
+                                    </StackPanel>
+                                    <Button Grid.Column="1" Style="{StaticResource LinkButton}" FontSize="16"
+                                            Command="{Binding DataContext.ToggleFavoriteCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                            CommandParameter="{Binding}">
+                                        <TextBlock FontSize="16">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Text" Value="☆" />
+                                                    <Setter Property="Foreground" Value="#9AA3B2" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsFavorite}" Value="True">
+                                                            <Setter Property="Text" Value="★" />
+                                                            <Setter Property="Foreground" Value="#F5C16C" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </Button>
+                                </Grid>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </DockPanel>
+            </Border>
+
+            <Border Grid.Column="4" Style="{StaticResource Card}">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel>
-                        <TextBlock Text="Effect" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10" />
-                        <RadioButton Content="Statische kleur" GroupName="Effect"
-                                     IsChecked="{Binding Effect, Converter={StaticResource EnumEquals}, ConverterParameter=Static}" />
-                        <RadioButton Content="Ademhaling" GroupName="Effect"
-                                     IsChecked="{Binding Effect, Converter={StaticResource EnumEquals}, ConverterParameter=Breathing}" />
-                        <RadioButton Content="Regenboog / kleurenwiel" GroupName="Effect"
-                                     IsChecked="{Binding Effect, Converter={StaticResource EnumEquals}, ConverterParameter=Rainbow}" />
-                        <RadioButton Content="Golf over LEDs" GroupName="Effect"
-                                     IsChecked="{Binding Effect, Converter={StaticResource EnumEquals}, ConverterParameter=Wave}" />
+                        <TextBlock Text="{Binding EffectTitle}" FontSize="16" FontWeight="SemiBold" />
+                        <TextBlock Text="{Binding EffectDescription}" Style="{StaticResource MutedText}" TextWrapping="Wrap" Margin="0,4,0,12" />
 
-                        <TextBlock Text="Kleur" FontSize="16" FontWeight="SemiBold" Margin="0,18,0,10" />
-                        <controls:ColorPickerControl SelectedColor="{Binding SelectedColor, Mode=TwoWay}" />
+                        <StackPanel Visibility="{Binding ShowPalette, Converter={StaticResource BoolToVis}}" Margin="0,0,0,12">
+                            <TextBlock Text="Palet" FontWeight="SemiBold" Margin="0,0,0,6" />
+                            <ComboBox ItemsSource="{Binding Palettes}" SelectedItem="{Binding SelectedPalette}"
+                                      DisplayMemberPath="Name" />
+                        </StackPanel>
 
-                        <Grid Margin="0,16,0,0">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <TextBlock Text="Snelheid" FontWeight="SemiBold" />
-                            <TextBlock Grid.Column="1" Style="{StaticResource MutedText}">
-                                <TextBlock.Text>
-                                    <Binding Path="Speed" StringFormat="{}{0:0}" />
-                                </TextBlock.Text>
-                            </TextBlock>
-                        </Grid>
-                        <Slider Minimum="1" Maximum="100" Value="{Binding Speed}" TickFrequency="1" IsSnapToTickEnabled="True" />
+                        <StackPanel Visibility="{Binding ShowColor, Converter={StaticResource BoolToVis}}" Margin="0,0,0,12">
+                            <TextBlock Text="Kleur" FontWeight="SemiBold" Margin="0,0,0,8" />
+                            <controls:ColorPickerControl SelectedColor="{Binding SelectedColor, Mode=TwoWay}" />
+                        </StackPanel>
 
-                        <Grid Margin="0,12,0,0">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
+                        <StackPanel Visibility="{Binding ShowColor2, Converter={StaticResource BoolToVis}}" Margin="0,0,0,12">
+                            <TextBlock Text="Tweede kleur" FontWeight="SemiBold" Margin="0,0,0,8" />
+                            <controls:ColorPickerControl SelectedColor="{Binding SelectedColor2, Mode=TwoWay}" />
+                        </StackPanel>
+
+                        <StackPanel Visibility="{Binding ShowDirection, Converter={StaticResource BoolToVis}}" Margin="0,0,0,12">
+                            <CheckBox Content="Omgekeerde richting" IsChecked="{Binding Reverse}" />
+                        </StackPanel>
+
+                        <StackPanel Visibility="{Binding ShowSpeed, Converter={StaticResource BoolToVis}}">
+                            <Grid>
+                                <TextBlock Text="Snelheid" FontWeight="SemiBold" />
+                                <TextBlock HorizontalAlignment="Right" Style="{StaticResource MutedText}" Text="{Binding Speed, StringFormat={}{0:0}}" />
+                            </Grid>
+                            <Slider Minimum="1" Maximum="100" Value="{Binding Speed}" TickFrequency="1" IsSnapToTickEnabled="True" />
+                        </StackPanel>
+
+                        <Grid Margin="0,10,0,0">
                             <TextBlock Text="Helderheid" FontWeight="SemiBold" />
-                            <TextBlock Grid.Column="1" Style="{StaticResource MutedText}">
-                                <TextBlock.Text>
-                                    <Binding Path="Brightness" StringFormat="{}{0:0}" />
-                                </TextBlock.Text>
-                            </TextBlock>
+                            <TextBlock HorizontalAlignment="Right" Style="{StaticResource MutedText}" Text="{Binding Brightness, StringFormat={}{0:0}}" />
                         </Grid>
                         <Slider Minimum="1" Maximum="100" Value="{Binding Brightness}" TickFrequency="1" IsSnapToTickEnabled="True" />
 
-                        <StackPanel Orientation="Horizontal" Margin="0,22,0,0">
-                            <Button Content="Starten" Command="{Binding StartCommand}"
-                                    Style="{StaticResource PrimaryButton}" MinWidth="120" Margin="0,0,10,0" />
-                            <Button Content="Stoppen" Command="{Binding StopCommand}"
-                                    Style="{StaticResource DangerButton}" MinWidth="120" />
+                        <TextBlock Text="{Binding SensorHint}" Style="{StaticResource MutedText}" TextWrapping="Wrap" Margin="0,10,0,0" />
+
+                        <StackPanel Orientation="Horizontal" Margin="0,18,0,0">
+                            <Button Content="Starten" Command="{Binding StartCommand}" Style="{StaticResource PrimaryButton}" MinWidth="120" Margin="0,0,10,0" />
+                            <Button Content="Stoppen" Command="{Binding StopCommand}" Style="{StaticResource DangerButton}" MinWidth="120" />
                         </StackPanel>
                         <TextBlock Margin="0,10,0,0" Style="{StaticResource MutedText}" TextWrapping="Wrap"
-                                   Text="Effecten draaien in de app en sturen ongeveer 30 keer per seconde LED-updates. Stoppen zet de gekozen apparaten terug op statisch wit." />
+                                   Text="Preview loopt altijd. Starten streamt ~30 fps naar OpenRGB. Stoppen zet de gekozen apparaten terug op wit." />
                     </StackPanel>
                 </ScrollViewer>
             </Border>
