@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>OpenRgbEffects.Core</RootNamespace>
+    <AssemblyName>OpenRgbEffects.Core</AssemblyName>
+    <Description>OpenRGB SDK client and software-side RGB effects.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="OpenRGB.NET" Version="3.1.1" />
+  </ItemGroup>
+</Project>
