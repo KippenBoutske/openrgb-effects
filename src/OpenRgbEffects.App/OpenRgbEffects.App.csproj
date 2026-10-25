@@ -8,6 +8,7 @@
     <AssemblyName>OpenRgbEffects</AssemblyName>
     <ApplicationIcon>Assets\app.ico</ApplicationIcon>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
     <ApplicationTitle>OpenRGB Effects</ApplicationTitle>
     <Description>Software-effecten voor OpenRGB.</Description>
   </PropertyGroup>
