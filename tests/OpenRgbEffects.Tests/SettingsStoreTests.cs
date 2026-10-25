@@ -24,7 +24,11 @@ public class SettingsStoreTests
                 StartWithWindows = true,
                 MinimizeToTray = false,
                 ResumeEffectOnStart = false,
-                WasRunning = true
+                WasRunning = true,
+                PaletteId = "ocean",
+                Color2Hex = "#112233",
+                Reverse = true,
+                Favorites = ["Fire", "Comet"]
             };
 
             store.Save(settings);
@@ -41,6 +45,10 @@ public class SettingsStoreTests
             Assert.False(loaded.MinimizeToTray);
             Assert.False(loaded.ResumeEffectOnStart);
             Assert.True(loaded.WasRunning);
+            Assert.Equal("ocean", loaded.PaletteId);
+            Assert.Equal("#112233", loaded.Color2Hex);
+            Assert.True(loaded.Reverse);
+            Assert.Equal(["Fire", "Comet"], loaded.Favorites);
         }
         finally
         {

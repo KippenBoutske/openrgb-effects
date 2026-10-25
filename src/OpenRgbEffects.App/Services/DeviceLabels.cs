@@ -1,3 +1,5 @@
+using OpenRgbEffects.Core;
+
 namespace OpenRgbEffects.App.Services;
 
 public static class DeviceLabels
@@ -29,12 +31,5 @@ public static class DeviceLabels
         _ => type
     };
 
-    public static string Effect(OpenRgbEffects.Core.EffectKind kind) => kind switch
-    {
-        OpenRgbEffects.Core.EffectKind.Static => "Statische kleur",
-        OpenRgbEffects.Core.EffectKind.Breathing => "Ademhaling",
-        OpenRgbEffects.Core.EffectKind.Rainbow => "Regenboog",
-        OpenRgbEffects.Core.EffectKind.Wave => "Golf",
-        _ => kind.ToString()
-    };
+    public static string Effect(EffectKind kind) => EffectCatalog.Get(kind).Name;
 }

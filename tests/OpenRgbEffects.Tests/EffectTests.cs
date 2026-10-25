@@ -59,11 +59,64 @@ public class EffectTests
     }
 
     [Fact]
-    public void Factory_CreatesRequestedEffect()
+    public void Catalog_HasAtLeastTwentyFourEffects()
     {
-        Assert.Equal(EffectKind.Static, EffectFactory.Create(EffectKind.Static).Kind);
-        Assert.Equal(EffectKind.Breathing, EffectFactory.Create(EffectKind.Breathing).Kind);
-        Assert.Equal(EffectKind.Rainbow, EffectFactory.Create(EffectKind.Rainbow).Kind);
-        Assert.Equal(EffectKind.Wave, EffectFactory.Create(EffectKind.Wave).Kind);
+        Assert.True(EffectCatalog.All.Count >= 24);
+        Assert.Equal(EffectCatalog.All.Count, EffectCatalog.All.Select(item => item.Kind).Distinct().Count());
+    }
+
+    [Fact]
+    public void Factory_CreatesEveryCatalogEffect()
+    {
+        foreach (var descriptor in EffectCatalog.All)
+        {
+            var effect = EffectFactory.Create(descriptor.Kind);
+            Assert.Equal(descriptor.Kind, effect.Kind);
+        }
+    }
+
+    [Fact]
+    public void AllEffects_RenderWithoutThrowing()
+    {
+        var palette = PalettePresets.Sunset.Colors;
+        var frame = new EffectFrame(0.8, 0.6, 0.8, new RgbColor(255, 40, 40))
+        {
+            Color2 = new RgbColor(20, 40, 255),
+            Palette = palette,
+            Direction = 1,
+            Sensors = new SensorSnapshot(0.4, 0.5, 0.3, 0.2, true, 62, 70, true, true, true, new RgbColor(10, 20, 30))
+        };
+
+        foreach (var descriptor in EffectCatalog.All)
+        {
+            var effect = EffectFactory.Create(descriptor.Kind);
+            foreach (var count in new[] { 1, 8, 32 })
+            {
+                var leds = new RgbColor[count];
+                effect.Render(frame, leds);
+            }
+        }
+    }
+
+    [Fact]
+    public void ColorWipe_FillsFurtherOverTime()
+    {
+        var effect = new ColorWipeEffect();
+        var early = new RgbColor[10];
+        var late = new RgbColor[10];
+        var palette = new[] { new RgbColor(255, 0, 0), new RgbColor(0, 0, 255) };
+        effect.Render(new EffectFrame(0.02, 0.2, 1, palette[0]) { Palette = palette }, early);
+        effect.Render(new EffectFrame(1.6, 0.2, 1, palette[0]) { Palette = palette }, late);
+        Assert.True(late.Count(led => led.R > 10 || led.B > 10) >= early.Count(led => led.R > 10 || led.B > 10));
+    }
+
+    [Fact]
+    public void SamplePalette_WrapsAndInterpolates()
+    {
+        var palette = new[] { new RgbColor(255, 0, 0), new RgbColor(0, 0, 255) };
+        var mid = ColorMath.SamplePalette(palette, 0.25);
+        Assert.True(mid.R > 80);
+        Assert.True(mid.B > 80);
+        Assert.Equal(ColorMath.SamplePalette(palette, 0), ColorMath.SamplePalette(palette, 1));
     }
 }

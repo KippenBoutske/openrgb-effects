@@ -5,6 +5,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using OpenRgbEffects.App.Services;
 using OpenRgbEffects.Core;
+using OpenRgbEffects.Core.Effects;
 
 namespace OpenRgbEffects.App.ViewModels;
 
@@ -20,10 +21,17 @@ public partial class MainViewModel : ObservableObject, IDisposable
     private readonly IRgbController _controller;
     private readonly EffectEngine _engine;
     private readonly SettingsStore _settingsStore;
+    private readonly SensorHub _sensors = new();
     private readonly DispatcherTimer _saveTimer;
     private readonly DispatcherTimer _reconnectTimer;
+    private readonly DispatcherTimer _previewTimer;
+    private readonly System.Diagnostics.Stopwatch _previewClock = System.Diagnostics.Stopwatch.StartNew();
+    private readonly RgbColor[] _previewLeds = new RgbColor[EffectEngine.PreviewLedCount];
+    private readonly ObservableCollection<EffectItemViewModel> _allEffects = [];
+    private ILedEffect _previewEffect = new StaticEffect();
     private bool _suppressSave;
     private bool _userRequestedConnect = true;
+    private int _hintTick;
 
     public MainViewModel()
         : this(new OpenRgbController(), new SettingsStore())
@@ -39,7 +47,34 @@ public partial class MainViewModel : ObservableObject, IDisposable
         _controller.DeviceListUpdated += OnDeviceListUpdated;
 
         Devices = [];
+        FilteredEffects = [];
+        Palettes = PalettePresets.All.Select(preset => new PaletteItemViewModel(preset)).ToArray();
+        Categories =
+        [
+            new CategoryFilterViewModel("all", "Alle"),
+            new CategoryFilterViewModel("favorites", "Favorieten"),
+            new CategoryFilterViewModel("classic", "Klassiek", EffectCategory.Classic),
+            new CategoryFilterViewModel("motion", "Beweging", EffectCategory.Motion),
+            new CategoryFilterViewModel("atmosphere", "Sfeer", EffectCategory.Atmosphere),
+            new CategoryFilterViewModel("alert", "Alert", EffectCategory.Alert),
+            new CategoryFilterViewModel("reactive", "Reactief", EffectCategory.Reactive)
+        ];
+
         Settings = _settingsStore.Load();
+        foreach (var descriptor in EffectCatalog.All)
+        {
+            var favorite = Settings.Favorites.Contains(descriptor.Kind.ToString(), StringComparer.OrdinalIgnoreCase);
+            var item = new EffectItemViewModel(descriptor, favorite);
+            item.PropertyChanged += (_, e) =>
+            {
+                if (e.PropertyName == nameof(EffectItemViewModel.IsFavorite))
+                {
+                    ApplyFilter();
+                    QueueSave();
+                }
+            };
+            _allEffects.Add(item);
+        }
 
         _saveTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(400) };
         _saveTimer.Tick += (_, _) =>
@@ -55,31 +90,30 @@ public partial class MainViewModel : ObservableObject, IDisposable
                 await ConnectAsync();
         };
 
+        _previewTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(1000.0 / EffectEngine.FramesPerSecond) };
+        _previewTimer.Tick += (_, _) => RenderPreview();
+
         ApplySettings(Settings);
-        PropertyChanged += (_, e) =>
-        {
-            if (_suppressSave)
-                return;
-            if (e.PropertyName is nameof(StatusText) or nameof(IsBusy) or nameof(IsConnected)
-                or nameof(ConnectionStatus) or nameof(IsRunning) or nameof(CanStart))
-                return;
-            QueueSave();
-            PushEffectState();
-        };
+        ApplyFilter();
+        PropertyChanged += OnVmPropertyChanged;
+        _previewTimer.Start();
     }
+
+    public event Action<RgbColor[]>? PreviewUpdated;
 
     public AppSettings Settings { get; private set; }
 
     public ObservableCollection<DeviceItemViewModel> Devices { get; }
 
-    [ObservableProperty]
-    private string _host = "127.0.0.1";
+    public ObservableCollection<EffectItemViewModel> FilteredEffects { get; }
 
-    [ObservableProperty]
-    private string _portText = "6742";
+    public IReadOnlyList<CategoryFilterViewModel> Categories { get; }
 
-    [ObservableProperty]
-    private ConnectionStatus _connectionStatus = ConnectionStatus.Disconnected;
+    public IReadOnlyList<PaletteItemViewModel> Palettes { get; }
+
+    [ObservableProperty] private string _host = "127.0.0.1";
+    [ObservableProperty] private string _portText = "6742";
+    [ObservableProperty] private ConnectionStatus _connectionStatus = ConnectionStatus.Disconnected;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsConnected))]
@@ -100,41 +134,36 @@ public partial class MainViewModel : ObservableObject, IDisposable
     [NotifyCanExecuteChangedFor(nameof(StopCommand))]
     private bool _isRunning;
 
-    [ObservableProperty]
-    private string _statusText = "Niet verbonden. Start OpenRGB als administrator en zet de SDK-server aan.";
-
-    [ObservableProperty]
-    private EffectKind _effect = EffectKind.Static;
-
-    [ObservableProperty]
-    private Color _selectedColor = Colors.White;
-
-    [ObservableProperty]
-    private double _speed = 50;
-
-    [ObservableProperty]
-    private double _brightness = 100;
-
-    [ObservableProperty]
-    private bool _startWithWindows;
-
-    [ObservableProperty]
-    private bool _minimizeToTray = true;
-
-    [ObservableProperty]
-    private bool _resumeEffectOnStart = true;
+    [ObservableProperty] private string _statusText = "Niet verbonden. Start OpenRGB als administrator en zet de SDK-server aan.";
+    [ObservableProperty] private EffectKind _effect = EffectKind.Static;
+    [ObservableProperty] private EffectItemViewModel? _selectedEffectItem;
+    [ObservableProperty] private Color _selectedColor = Colors.White;
+    [ObservableProperty] private Color _selectedColor2 = Color.FromRgb(59, 130, 246);
+    [ObservableProperty] private PaletteItemViewModel? _selectedPalette;
+    [ObservableProperty] private bool _reverse;
+    [ObservableProperty] private double _speed = 50;
+    [ObservableProperty] private double _brightness = 100;
+    [ObservableProperty] private bool _startWithWindows;
+    [ObservableProperty] private bool _minimizeToTray = true;
+    [ObservableProperty] private bool _resumeEffectOnStart = true;
+    [ObservableProperty] private string _searchText = "";
+    [ObservableProperty] private string _categoryFilterId = "all";
+    [ObservableProperty] private string _sensorHint = "";
 
     public bool IsConnected => ConnectedFlag;
-
     public string ConnectLabel => IsConnected ? "Opnieuw verbinden" : "Verbinden";
-
     public bool CanConnect => !IsBusy;
-
     public bool CanStart => IsConnected && !IsBusy && !IsRunning;
-
     public bool CanStop => IsRunning && !IsBusy;
-
     public bool CanRefresh => IsConnected && !IsBusy;
+    public bool ShowSpeed => Features.Has(EffectFeatures.Speed);
+    public bool ShowColor => Features.Has(EffectFeatures.Color);
+    public bool ShowColor2 => Features.Has(EffectFeatures.Color2);
+    public bool ShowPalette => Features.Has(EffectFeatures.Palette);
+    public bool ShowDirection => Features.Has(EffectFeatures.Direction);
+    public EffectFeatures Features => EffectCatalog.Get(Effect).Features;
+    public string EffectDescription => EffectCatalog.Get(Effect).Description;
+    public string EffectTitle => EffectCatalog.Get(Effect).Name;
 
     [RelayCommand(CanExecute = nameof(CanConnect))]
     public async Task ConnectAsync()
@@ -215,7 +244,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
             IsRunning = true;
             Settings.WasRunning = true;
             Persist();
-            StatusText = $"Effect actief: {DeviceLabels.Effect(Effect)}.";
+            StatusText = $"Effect actief: {EffectTitle}.";
         }
         catch (Exception ex)
         {
@@ -264,11 +293,27 @@ public partial class MainViewModel : ObservableObject, IDisposable
             device.IsSelected = false;
     }
 
+    [RelayCommand]
+    public void SelectCategory(string? id)
+    {
+        if (!string.IsNullOrWhiteSpace(id))
+            CategoryFilterId = id;
+    }
+
+    [RelayCommand]
+    public void ToggleFavorite(EffectItemViewModel? item)
+    {
+        if (item is null)
+            return;
+        item.IsFavorite = !item.IsFavorite;
+    }
+
     public async Task InitializeAsync()
     {
         if (StartWithWindows != StartupManager.IsEnabled())
             StartupManager.SetEnabled(StartWithWindows);
 
+        _sensors.Start();
         await ConnectAsync();
         if (IsConnected && ResumeEffectOnStart && Settings.WasRunning)
             await StartAsync();
@@ -276,6 +321,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
     public async Task ShutdownAsync()
     {
+        _previewTimer.Stop();
         _reconnectTimer.Stop();
         _saveTimer.Stop();
         var resume = IsRunning;
@@ -287,16 +333,19 @@ public partial class MainViewModel : ObservableObject, IDisposable
         Settings.WasRunning = resume;
         Persist();
         _controller.Disconnect();
+        _sensors.Dispose();
     }
 
     public void Dispose()
     {
+        _previewTimer.Stop();
         _reconnectTimer.Stop();
         _saveTimer.Stop();
         _engine.Failed -= OnEngineFailed;
         _controller.DeviceListUpdated -= OnDeviceListUpdated;
         _engine.Dispose();
         _controller.Dispose();
+        _sensors.Dispose();
         GC.SuppressFinalize(this);
     }
 
@@ -312,6 +361,31 @@ public partial class MainViewModel : ObservableObject, IDisposable
         }
     }
 
+    partial void OnEffectChanged(EffectKind value)
+    {
+        _previewEffect = EffectFactory.Create(value);
+        SelectedEffectItem = _allEffects.FirstOrDefault(item => item.Kind == value);
+        OnPropertyChanged(nameof(ShowSpeed));
+        OnPropertyChanged(nameof(ShowColor));
+        OnPropertyChanged(nameof(ShowColor2));
+        OnPropertyChanged(nameof(ShowPalette));
+        OnPropertyChanged(nameof(ShowDirection));
+        OnPropertyChanged(nameof(Features));
+        OnPropertyChanged(nameof(EffectDescription));
+        OnPropertyChanged(nameof(EffectTitle));
+        UpdateSensorHint();
+    }
+
+    partial void OnSelectedEffectItemChanged(EffectItemViewModel? value)
+    {
+        if (value is not null && value.Kind != Effect)
+            Effect = value.Kind;
+    }
+
+    partial void OnSearchTextChanged(string value) => ApplyFilter();
+
+    partial void OnCategoryFilterIdChanged(string value) => ApplyFilter();
+
     private void ApplySettings(AppSettings settings)
     {
         _suppressSave = true;
@@ -319,12 +393,41 @@ public partial class MainViewModel : ObservableObject, IDisposable
         PortText = settings.Port.ToString();
         Effect = settings.Effect;
         SelectedColor = ToMedia(settings.Color);
+        SelectedColor2 = ToMedia(settings.Color2);
+        SelectedPalette = Palettes.FirstOrDefault(item => item.Id == settings.PaletteId) ?? Palettes[0];
+        Reverse = settings.Reverse;
         Speed = settings.Speed * 100;
         Brightness = settings.Brightness * 100;
         StartWithWindows = settings.StartWithWindows;
         MinimizeToTray = settings.MinimizeToTray;
         ResumeEffectOnStart = settings.ResumeEffectOnStart;
+        SelectedEffectItem = _allEffects.FirstOrDefault(item => item.Kind == settings.Effect);
         _suppressSave = false;
+        UpdateSensorHint();
+    }
+
+    private void ApplyFilter()
+    {
+        IEnumerable<EffectItemViewModel> query = _allEffects;
+        if (CategoryFilterId == "favorites")
+            query = query.Where(item => item.IsFavorite);
+        else if (Categories.FirstOrDefault(item => item.Id == CategoryFilterId)?.Category is { } category)
+            query = query.Where(item => item.Category == category);
+
+        if (!string.IsNullOrWhiteSpace(SearchText))
+        {
+            query = query.Where(item =>
+                item.Name.Contains(SearchText, StringComparison.OrdinalIgnoreCase) ||
+                item.Description.Contains(SearchText, StringComparison.OrdinalIgnoreCase) ||
+                item.CategoryName.Contains(SearchText, StringComparison.OrdinalIgnoreCase));
+        }
+
+        var selected = SelectedEffectItem;
+        FilteredEffects.Clear();
+        foreach (var item in query)
+            FilteredEffects.Add(item);
+        if (selected is not null && FilteredEffects.Contains(selected))
+            SelectedEffectItem = selected;
     }
 
     private void RefreshDevices()
@@ -358,11 +461,62 @@ public partial class MainViewModel : ObservableObject, IDisposable
         StartCommand.NotifyCanExecuteChanged();
     }
 
+    private void OnVmPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (_suppressSave)
+            return;
+        if (e.PropertyName is nameof(StatusText) or nameof(IsBusy) or nameof(IsConnected)
+            or nameof(ConnectionStatus) or nameof(IsRunning) or nameof(CanStart)
+            or nameof(SearchText) or nameof(CategoryFilterId) or nameof(SensorHint)
+            or nameof(ShowSpeed) or nameof(ShowColor) or nameof(ShowColor2)
+            or nameof(ShowPalette) or nameof(ShowDirection) or nameof(EffectDescription)
+            or nameof(EffectTitle) or nameof(ConnectLabel) or nameof(Features)
+            or nameof(SelectedEffectItem))
+            return;
+        QueueSave();
+        PushEffectState();
+    }
+
     private void PushEffectState()
     {
         var color = new RgbColor(SelectedColor.R, SelectedColor.G, SelectedColor.B);
+        var color2 = new RgbColor(SelectedColor2.R, SelectedColor2.G, SelectedColor2.B);
+        var palette = SelectedPalette?.Preset.Colors ?? PalettePresets.Rainbow.Colors;
         var ids = Devices.Where(device => device.IsSelected).Select(device => device.Device.Index);
-        _engine.State.Update(Effect, color, Speed / 100.0, Brightness / 100.0, ids);
+        _engine.State.Update(Effect, color, color2, palette, Speed / 100.0, Brightness / 100.0, Reverse ? -1 : 1, ids, _sensors.Capture());
+    }
+
+    private void RenderPreview()
+    {
+        if (_previewEffect.Kind != Effect)
+            _previewEffect = EffectFactory.Create(Effect);
+
+        PushEffectState();
+        var snapshot = _engine.State.Capture();
+        var frame = EffectEngine.CreateFrame(snapshot, _previewClock.Elapsed.TotalSeconds);
+        _previewEffect.Render(frame, _previewLeds);
+        PreviewUpdated?.Invoke(_previewLeds);
+        if ((_hintTick++ % 15) == 0)
+            UpdateSensorHint();
+    }
+
+    private void UpdateSensorHint()
+    {
+        var sensors = _engine.State.Capture().Sensors;
+        if (Features.Has(EffectFeatures.Audio))
+            SensorHint = sensors.HasAudio
+                ? $"Audio: niveau {sensors.AudioLevel:0.00} · bass {sensors.Bass:0.00}"
+                : "Geen Windows-loopbackaudio. Speel iets af of controleer de standaarduitvoer.";
+        else if (Features.Has(EffectFeatures.Temperature))
+            SensorHint = sensors.HasTemperature
+                ? $"CPU {sensors.CpuTempC:0}°C · GPU {sensors.GpuTempC:0}°C"
+                : "Temperatuursensors niet beschikbaar. Draai de app als administrator voor LibreHardwareMonitor.";
+        else if (Features.Has(EffectFeatures.Ambient))
+            SensorHint = sensors.HasAmbient
+                ? "Schermkleur wordt live gemiddeld."
+                : "Schermkleur kon niet worden gelezen.";
+        else
+            SensorHint = "";
     }
 
     private IReadOnlyList<RgbDeviceInfo> SelectedDevices() =>
@@ -380,9 +534,13 @@ public partial class MainViewModel : ObservableObject, IDisposable
         Settings.Port = int.TryParse(PortText, out var port) ? port : 6742;
         Settings.Effect = Effect;
         Settings.ColorHex = $"#{SelectedColor.R:X2}{SelectedColor.G:X2}{SelectedColor.B:X2}";
+        Settings.Color2Hex = $"#{SelectedColor2.R:X2}{SelectedColor2.G:X2}{SelectedColor2.B:X2}";
+        Settings.PaletteId = SelectedPalette?.Id ?? "rainbow";
+        Settings.Reverse = Reverse;
         Settings.Speed = Speed / 100.0;
         Settings.Brightness = Brightness / 100.0;
         Settings.SelectedDevices = Devices.Where(device => device.IsSelected).Select(device => device.Name).ToList();
+        Settings.Favorites = _allEffects.Where(item => item.IsFavorite).Select(item => item.Kind.ToString()).ToList();
         Settings.StartWithWindows = StartWithWindows;
         Settings.MinimizeToTray = MinimizeToTray;
         Settings.ResumeEffectOnStart = ResumeEffectOnStart;
